@@ -4,7 +4,7 @@ project(ProjectName)
   --Settings
   kind "ConsoleApp"
   language "C++"
-  flags { "StaticRuntime" }
+  staticruntime "On"
 
   filter { "system:windows" }
     buildoptions { '/Gm-' }
@@ -73,8 +73,9 @@ filter { "configurations:Debug*" }
 filter { "configurations:Release" }
 	defines { "NDEBUG" }
 	optimize "Speed"
-	flags { "NoFramePointer", "NoBufferSecurityCheck", "NoIncrementalLink" }
-	symbols "On"
+	flags { "NoBufferSecurityCheck", "NoIncrementalLink" }
+	omitframepointer "On"
+  symbols "On"
 
 filter { "system:windows", "configurations:Release", "action:vs2012" }
 	buildoptions { "/d2Zi+" }

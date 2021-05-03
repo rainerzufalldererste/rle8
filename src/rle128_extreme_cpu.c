@@ -334,6 +334,56 @@ void rle128_extreme_decompress_avx(IN const uint8_t *pInStart, OUT uint8_t *pOut
 	}
 }
 
+#ifndef _MSC_VER
+__attribute__((target("avx512f")))
+#endif
+void rle128_extreme_decompress_avx512f(IN const uint8_t *pInStart, OUT uint8_t *pOut)
+{
+	size_t offset, symbolCount;
+	__m512i symbol;
+
+	typedef __m128i symbol_t;
+
+	while (true)
+	{
+		symbol = _mm512_castps_si512(_mm512_broadcast_f32x4(_mm_loadu_ps((const float *)pInStart)));
+		pInStart += sizeof(symbol_t);
+		symbolCount = (size_t)*pInStart;
+		pInStart++;
+
+		if (symbolCount == 0)
+		{
+			symbolCount = *(uint32_t *)pInStart;
+			pInStart += sizeof(uint32_t);
+		}
+
+		offset = (size_t)*pInStart;
+		pInStart++;
+
+		if (offset == 0)
+		{
+			offset = *(uint32_t *)pInStart;
+			pInStart += sizeof(uint32_t);
+
+			if (offset == 0)
+				return;
+		}
+
+		offset--;
+
+		// memcpy.
+		MEMCPY_AVX512_MULTI;
+
+		if (!symbolCount)
+			return;
+
+		symbolCount = (symbolCount + (RLE128_EXTREME_MULTI_MIN_RANGE_SHORT / sizeof(symbol_t)) - 1) * sizeof(symbol_t);
+
+		// memset.
+		MEMSET_AVX512_MULTI;
+	}
+}
+
 uint32_t rle128_extreme_decompress(IN const uint8_t *pIn, const uint32_t inSize, OUT uint8_t *pOut, const uint32_t outSize)
 {
 	if (pIn == NULL || pOut == NULL || inSize == 0 || outSize == 0)
@@ -351,7 +401,9 @@ uint32_t rle128_extreme_decompress(IN const uint8_t *pIn, const uint32_t inSize,
 
 	pIn += index;
 
-	if (avxSupported)
+	if (avx512FSupported)
+		rle128_extreme_decompress_avx512f(pIn, pOut);
+	else if (avxSupported)
 		rle128_extreme_decompress_avx(pIn, pOut);
 	else
 		rle128_extreme_decompress_sse(pIn, pOut);

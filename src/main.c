@@ -643,6 +643,10 @@ int main(int argc, char **pArgv)
       fclose(pCompressed);
     }
 
+    // Scramble data outside the claimed length, to ensure the compressors are telling the truth about the claimed length.
+    for (size_t i = compressedSize; i < compressedBufferSize; i++)
+      pCompressedData[i] = ~pCompressedData[i];
+
     subTimeMin = UINT64_MAX;
     subTimeMax = 0;
 
@@ -810,12 +814,12 @@ bool Validate(const uint8_t *pUncompressedData, const uint8_t *pDecompressedData
     {
       if (pUncompressedData[i] != pDecompressedData[i])
       {
-        printf("First invalid char at %" PRIu64 " (0x%" PRIx8 " != 0x%" PRIx8 ").\n", i, pUncompressedData[i], pDecompressedData[i]);
+        printf("First invalid char at %" PRIu64 " (0x%" PRIX8 " != 0x%" PRIX8 ").\n", i, pUncompressedData[i], pDecompressedData[i]);
 
         const int64_t start = max(0, (int64_t)i - 64);
         const int64_t end = min((int64_t)fileSize, (int64_t)(i + 64));
 
-        printf("\nContext: (%" PRIi64 " to %" PRIi64 ")\n", start, end);
+        printf("\nContext: (%" PRIi64 " to %" PRIi64 ")\n\n   Expected:                                        |  Actual Output:\n\n", start, end);
 
         for (int64_t context = start; context < end; context += 16)
         {

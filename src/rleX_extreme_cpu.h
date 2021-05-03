@@ -332,6 +332,56 @@ void CONCAT3(rle, TYPE_SIZE, _extreme_decompress_avx)(IN const uint8_t *pInStart
   }
 }
 
+#ifndef _MSC_VER
+__attribute__((target("avx512f")))
+#endif
+void CONCAT3(rle, TYPE_SIZE, _extreme_decompress_avx512f)(IN const uint8_t *pInStart, OUT uint8_t *pOut)
+{
+  size_t offset, symbolCount;
+  __m512i symbol;
+
+  typedef CONCAT3(uint, TYPE_SIZE, _t) symbol_t;
+
+  while (true)
+  {
+    symbol = CONCAT2(_mm512_set1_epi, TYPE_SIZE)(*(symbol_t *)pInStart);
+    pInStart += sizeof(symbol_t);
+    symbolCount = (size_t)*pInStart;
+    pInStart++;
+
+    if (symbolCount == 0)
+    {
+      symbolCount = *(uint32_t *)pInStart;
+      pInStart += sizeof(uint32_t);
+    }
+
+    offset = (size_t)*pInStart;
+    pInStart++;
+
+    if (offset == 0)
+    {
+      offset = *(uint32_t *)pInStart;
+      pInStart += sizeof(uint32_t);
+
+      if (offset == 0)
+        return;
+    }
+
+    offset--;
+
+    // memcpy.
+    MEMCPY_AVX512_MULTI;
+
+    if (!symbolCount)
+      return;
+
+    symbolCount = (symbolCount + (RLEX_EXTREME_MULTI_MIN_RANGE_SHORT / sizeof(symbol_t)) - 1) * sizeof(symbol_t);
+
+    // memset.
+    MEMSET_AVX512_MULTI;
+  }
+}
+
 uint32_t CONCAT3(rle, TYPE_SIZE, _extreme_decompress)(IN const uint8_t *pIn, const uint32_t inSize, OUT uint8_t *pOut, const uint32_t outSize)
 {
   if (pIn == NULL || pOut == NULL || inSize == 0 || outSize == 0)
@@ -349,7 +399,9 @@ uint32_t CONCAT3(rle, TYPE_SIZE, _extreme_decompress)(IN const uint8_t *pIn, con
 
   pIn += index;
 
-  if (avxSupported)
+  if (avx512FSupported)
+    CONCAT3(rle, TYPE_SIZE, _extreme_decompress_avx512f)(pIn, pOut);
+  else if (avxSupported)
     CONCAT3(rle, TYPE_SIZE, _extreme_decompress_avx)(pIn, pOut);
   else
     CONCAT3(rle, TYPE_SIZE, _extreme_decompress_sse)(pIn, pOut);
